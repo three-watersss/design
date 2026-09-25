@@ -76,3 +76,27 @@ test("recovery can stop a verified worker without killing unrelated processes", 
     fs.rmSync(x.root, { recursive: true, force: true });
   }
 });
+
+test("nonce-bound stop request gracefully ends the CLI supervisor", async () => {
+  const x = await workerFixture(10000);
+  try {
+    fs.writeFileSync(
+      path.join(x.dir, "stop.json"),
+      JSON.stringify({ pid: x.child.pid, nonce: "wrong" }),
+    );
+    await new Promise((r) => setTimeout(r, 1200));
+    assert.equal(fs.existsSync(path.join(x.dir, "receipt.json")), false);
+    fs.writeFileSync(
+      path.join(x.dir, "stop.json"),
+      JSON.stringify({ pid: x.child.pid, nonce: "test" }),
+    );
+    assert.equal(await x.finished, 1);
+    assert.equal(
+      JSON.parse(fs.readFileSync(path.join(x.dir, "receipt.json"), "utf8"))
+        .kind,
+      "interrupted",
+    );
+  } finally {
+    fs.rmSync(x.root, { recursive: true, force: true });
+  }
+});

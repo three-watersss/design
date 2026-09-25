@@ -13,6 +13,10 @@ export interface Config {
   proxy: string;
 }
 export function loadConfig(root = process.cwd()): Config {
+  if (!fs.existsSync(path.join(root, "config.toml")))
+    throw Error(
+      "缺少 config.toml，请复制 config.toml.eaxmple 为 config.toml 并填写本地设置",
+    );
   const raw = parse(
     fs.readFileSync(path.join(root, "config.toml"), "utf8"),
   ) as any;

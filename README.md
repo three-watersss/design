@@ -2,7 +2,7 @@
 
 把 Excel 选题表变成可人工审核的图片与文案，再保存、挑选和管理待发布素材。图片与文案通过 **Codex CLI + 自己的 ChatGPT 订阅账号**生成；导入、排队、审核、存储与发布标记由本地程序完成，不需要 OpenAI API Key。
 
-当前版本面向 **macOS、单人、本机使用**，使用 React + TypeScript、Node.js 和 SQLite。图片原文件保存在本地，不会随 Git 推送。发布按钮只记录“已发布”，不会登录或操作小红书。
+当前版本面向 **macOS / Windows、单人、本机使用**，使用 React + TypeScript、Node.js 和 SQLite。图片原文件保存在本地，不会随 Git 推送。发布按钮只记录“已发布”，不会登录或操作小红书。
 
 ## 目录
 
@@ -21,12 +21,14 @@
 
 | 条件 | 要求与检查方法 |
 | --- | --- |
-| 操作系统 | macOS，能够使用终端、浏览器和 Finder。当前启动、停止及打开文件夹功能按 Mac 实现 |
-| Git | 终端执行 `git --version`；如果系统提示安装命令行开发工具，先完成安装 |
+| 操作系统 | macOS，或 Windows 10/11；Windows 使用原生 Node.js、Codex CLI、PowerShell 和资源管理器，本文不混用 WSL 环境 |
+| Git | 执行 `git --version`；Mac 按系统提示安装命令行开发工具，Windows 安装 [Git for Windows](https://git-scm.com/downloads/win) 后重新打开终端 |
 | Node.js 与 npm | 安装 [Node.js 24](https://nodejs.org/en/download)，然后执行 `node --version` 和 `npm --version`；本项目要求 Node.js **24 或更新版本** |
 | ChatGPT 账号 | 使用自己的、具备 Codex 使用权限的订阅账号，并确认有目标模型和内置生图工具的权限 |
 | 网络代理 | 准备能够访问 ChatGPT 的 HTTP / HTTPS 代理；本项目必须配置代理，不支持将代理留空 |
 | 本地空间 | 项目及数据目录可写，并为原图保留足够磁盘空间 |
+
+Mac 已完成真实生成验证；Windows 已添加原生启停与 CLI 适配，并覆盖相关逻辑测试，**尚未完成 Windows 真机端到端验收**。Windows 用户应先用一个选题验证工具和账号环境。
 
 作者验证环境为 Node.js 24.18.0、Codex CLI 0.145.0 和 Pro 账号。默认主模型是 `gpt-5.6-sol`，思考程度为 `high`。这些是已测环境，**不代表所有账号、CLI 版本或 Plus 并发额度均已验证**。安装和登录后，请先按下文跑通一个选题，再增加并发。
 
@@ -34,7 +36,9 @@
 
 ### 2. 配置终端网络并克隆仓库
 
-打开“终端”。如果网络访问 GitHub、npm 或 ChatGPT 需要代理，先执行下列命令，**把 `7897` 换成自己的代理 HTTP 或混合端口**，并确保代理软件已启动：
+Mac 打开“终端”，Windows 打开 PowerShell。如果网络访问 GitHub、npm 或 ChatGPT 需要代理，先执行下列命令，**把 `7897` 换成自己的代理 HTTP 或混合端口**，并确保代理软件已启动：
+
+**macOS：**
 
 ```sh
 export HTTPS_PROXY="http://127.0.0.1:7897"
@@ -43,9 +47,18 @@ export ALL_PROXY="$HTTPS_PROXY"
 export NO_PROXY="localhost,127.0.0.1,::1"
 ```
 
+**Windows PowerShell：**
+
+```powershell
+$env:HTTPS_PROXY = "http://127.0.0.1:7897"
+$env:HTTP_PROXY = $env:HTTPS_PROXY
+$env:ALL_PROXY = $env:HTTPS_PROXY
+$env:NO_PROXY = "localhost,127.0.0.1,::1"
+```
+
 这些变量只影响当前终端，后面还需要修改项目的 `config.toml`。本地网页应直接访问，不经代理。不要将 SOCKS 专用端口填成 HTTP 代理。
 
-克隆并进入项目目录：
+macOS 克隆并进入项目目录：
 
 ```sh
 mkdir -p ~/Projects
@@ -53,6 +66,17 @@ cd ~/Projects
 git clone https://github.com/three-watersss/design.git
 cd design
 ```
+
+Windows PowerShell：
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME/Projects" | Out-Null
+Set-Location "$HOME/Projects"
+git clone https://github.com/three-watersss/design.git
+Set-Location design
+```
+
+仓库为 public，使用上述 HTTPS 地址克隆或 `git pull` **不需要 GitHub Key / Token**。推送修改仍需要写入权限及认证。若已有副本使用 SSH 地址，可执行 `git remote set-url origin https://github.com/three-watersss/design.git` 改为 HTTPS。
 
 后面的项目命令均在这个 `design` 目录中执行。仓库包含提示词 Markdown 文件，无需另找原始 DOCX 模板；新克隆的仓库不包含作者的素材、数据库或登录凭据。
 
@@ -67,9 +91,11 @@ codex login status
 
 根据提示在浏览器完成 **ChatGPT 登录**。最后一条命令应显示当前通过 ChatGPT 登录；仅在浏览器登录 ChatGPT 并不等于 CLI 已登录。不要选择 API Key 登录，也无需创建 `.env` 或填写 API Key。
 
-官方说明：[Codex CLI](https://developers.openai.com/codex/cli/) · [登录与认证](https://developers.openai.com/codex/auth/)。ChatGPT 订阅登录与 API Key 计费是两种不同接入方式；本工具固定使用前者。CLI 凭据保存在你的本机 Codex 环境中，不要将凭据文件复制给其他使用者或提交到仓库。
+官方说明：[Codex CLI](https://developers.openai.com/codex/cli/) · [登录与认证](https://developers.openai.com/codex/auth/) · [Windows 环境](https://developers.openai.com/codex/windows)。ChatGPT 订阅登录与 API Key 计费是两种不同接入方式；本工具固定使用前者。CLI 凭据保存在你的本机 Codex 环境中，不要将凭据文件复制给其他使用者或提交到仓库。
 
-若安装提示 `EACCES` 权限错误，可以改用个人目录安装，然后重新执行上面的登录命令：
+Windows 下若 PowerShell 提示禁止执行 `npm.ps1` 或 `codex.ps1`，使用 `npm.cmd`、`codex.cmd` 替代下面或上面的同名命令，例如 `npm.cmd install -g @openai/codex`、`codex.cmd login`，无需修改全局执行策略。
+
+Mac 若安装提示 `EACCES` 权限错误，可以改用个人目录安装，然后重新执行上面的登录命令：
 
 ```sh
 npm install -g --prefix "$HOME/.npm-global" @openai/codex
@@ -78,9 +104,23 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 
 项目的双击启动脚本已经包含该目录。若希望以后新开的终端也能直接运行 `codex`，将这条 `export PATH=...` 加入自己的 shell 配置，例如 macOS 默认 zsh 的 `~/.zshrc`。
 
-### 4. 编辑项目配置
+### 4. 从模板创建本地配置
 
-用文本编辑器打开项目根目录的 [config.toml](config.toml)。仓库默认内容为：
+仓库只保存 [config.toml.eaxmple](config.toml.eaxmple)，不再跟踪实际的 `config.toml`。首次使用先复制一份（模板文件名按仓库实际拼写为 `.eaxmple`）：
+
+macOS：
+
+```sh
+cp config.toml.eaxmple config.toml
+```
+
+Windows PowerShell：
+
+```powershell
+Copy-Item config.toml.eaxmple config.toml
+```
+
+也可在文件管理器中复制模板并改名为 `config.toml`，注意不要变成 `config.toml.txt`。**已有配置时不要重复复制覆盖。** 用文本编辑器打开新建的 `config.toml`，模板默认内容为：
 
 ```toml
 [server]
@@ -103,19 +143,21 @@ proxy = "http://127.0.0.1:7897"
 1. `proxy` 已换成自己实际可用的 HTTP / HTTPS 代理地址。终端代理变量不会替代这里的配置。
 2. 建议先将 `max_concurrency` 改成 **1**，单选题验证成功后再逐步增加。仓库默认 3 是本工具的并发上限设置，不是 Plus 或 Pro 的安全容量承诺。
 3. `model` 是自己的 Codex 账号可以调用的模型；保留默认值时也需要实际验证。如果模型不可用，应填写自己账号实际支持的模型名，而不是不断重试。
-4. `codex_bin` 能找到已安装的 CLI。终端执行 `command -v codex` 可查询路径；双击启动找不到 CLI 时，将其输出的绝对路径填入此项。
+4. `codex_bin` 能找到已安装的 CLI。Mac 终端执行 `command -v codex`、Windows 执行 `where.exe codex` 可查询路径；双击启动找不到 CLI 时，将其输出的绝对路径填入此项。
+
+Windows 的绝对路径建议使用正斜杠，例如 `codex_bin = "C:/Users/你的用户名/AppData/Roaming/npm/codex.cmd"`；不要在 TOML 双引号中直接写未转义的反斜杠。原生安装也可指定 `codex.exe`，非标准 npm 包装脚本可改为 `codex.js` 的绝对路径。
 
 保留 TOML 格式和引号。首次启动会自动创建 `data` 目录，无需手工创建数据库。
 
 ### 5. 启动工作台
 
-在 Finder 中打开项目文件夹，双击 **启动素材工作台.command**。也可以在项目终端执行：
+Mac 双击 **启动素材工作台.command**；Windows 双击 **启动素材工作台.bat**。也可以在项目终端执行：
 
 ```sh
 npm run launch
 ```
 
-首次启动会自动运行 `npm ci` 安装项目依赖、构建界面、启动后台服务并打开浏览器。请等待终端显示打开地址；首次下载可能需要几分钟。启动脚本不会自动安装 Node.js、Codex CLI、代理软件或替你完成账号登录。
+首次启动或依赖文件变化时，会自动运行 `npm ci` 安装项目依赖；随后构建界面、启动后台服务并打开浏览器。请等待终端显示打开地址；首次下载可能需要几分钟。启动脚本不会自动安装 Node.js、Codex CLI、代理软件或替你完成账号登录。
 
 默认地址为 <http://127.0.0.1:4317>。修改端口后以启动器输出的地址为准。服务只绑定本机地址，不能作为局域网多人服务使用。
 
@@ -160,7 +202,7 @@ npm run launch
 - **素材库**：只展示图片和文案均已人工通过的完整素材，可筛选账号、主题和发布状态。未完成或待审核的任务请到生成工作台查看。
 - **删除素材**：进入素材库“未发布”页，点击卡片左下角的垃圾桶图标并确认，永久删除整组本地素材及 SQLite 中的关联记录。已发布页没有删除入口。无需手工去数据文件夹删除。
 - **发布台**：从未发布素材中随机挑选，也可按账号筛选。“换一组”不改状态，本轮排除已展示素材，候选耗尽后重新开始挑选。
-- **组织发布内容**：挑选素材后，点击“图片组”旁的文件夹图标，在 Finder 打开这组原图所在目录；也可以下载图片 ZIP、完整素材包和复制文案。需要整理时请复制到自己的发布目录，避免移动或删除应用保存的原文件。
+- **组织发布内容**：挑选素材后，点击“图片组”旁的文件夹图标，在 Finder（Mac）或资源管理器（Windows）打开这组原图所在目录；也可以下载图片 ZIP、完整素材包和复制文案。需要整理时请复制到自己的发布目录，避免移动或删除应用保存的原文件。
 - **发布标记**：自行在小红书完成发布后，点击本工具的“发布”记录状态和时间。工具不会代发笔记。
 
 ### 怎样关闭工具
@@ -170,8 +212,8 @@ npm run launch
 | 关闭或刷新网页 | 继续运行，重新打开网页即可查看 |
 | 启动成功后关闭启动器终端窗口 | 继续运行，服务已在后台启动 |
 | 点击“暂停派发” | 当前阶段继续完成，暂停启动新的阶段 |
-| 双击“停止素材工作台.command” | 停止后台服务，并终止其正在运行的 CLI 子进程 |
-| 再次双击“启动素材工作台.command” | 服务已运行时只打开现有页面；已停止时启动并恢复任务 |
+| 双击 Mac 的停止 `.command` / Windows 的停止 `.bat` | 停止后台服务，并终止其正在运行的 CLI 子进程 |
+| 再次双击对应系统的启动脚本 | 服务已运行时只打开现有页面；已停止时启动并恢复任务 |
 
 终端停止方式：在项目目录执行 `node scripts/stop.mjs`。等待显示“素材工作台已停止”后再重启。前台调试使用 `npm start` 时，可用 `Ctrl+C` 停止。
 
@@ -179,7 +221,7 @@ npm run launch
 
 ### 配置文件
 
-修改 [config.toml](config.toml) 后需要停止再启动。**修改端口或数据目录之前先停止现有服务**，否则启动器或停止脚本可能无法定位原来的实例。
+修改本地 `config.toml` 后需要停止再启动。此文件已加入 `.gitignore`，后续 `git pull` 不会覆盖个人配置；模板新增配置项时可按更新说明手动补入。**修改端口或数据目录之前先停止现有服务**，否则启动器或停止脚本可能无法定位原来的实例。
 
 | 配置项 | 用途 |
 | --- | --- |
@@ -199,7 +241,7 @@ npm run launch
 - [prompts/images.md](prompts/images.md)：图片提示词，保留原模板及重复段落，可自行编辑。
 - [prompts/copy.md](prompts/copy.md)：文案提示词，生成时同时附带实际图片。
 
-两份文件均须保留 `{{topic}}` 占位符，用来注入主题；可选 `{{account}}` 注入账号名。使用 UTF-8 纯文本保存，不要把 DOCX 文件直接改名为 Markdown。
+两份文件均须保留 `{{topic}}` 占位符，用来注入主题；可选 `{{account}}` 注入账号名。使用 UTF-8 纯文本保存，不要把 DOCX 文件直接改名为 Markdown。程序只替换上述占位符，其余文字（包括自己写入的“（可变参数）”“（可替换参数）”）都会原样发送，不会自动删除。
 
 每次新生成及人工重新生成都会读取最新提示词，**修改提示词无需重启**。已开始的执行固定使用开始时保存的快照；中断后的自动恢复、退避重试继续使用该快照。
 
@@ -229,7 +271,8 @@ SQLite 持久化每个阶段和执行记录，启动时自动恢复：
 | `data/materials.sqlite` | 任务、阶段、文案关联及发布状态 | 否 |
 | `data/attempts/` | 当前图片、文案结果及执行所需文件 | 否 |
 | `prompts/` | 可编辑提示词 | 是 |
-| `config.toml` | 本机运行配置 | 是，提交前检查是否包含个人路径或代理凭据 |
+| `config.toml` | 本机运行配置 | 否，个人配置不随拉取更新改变 |
+| `config.toml.eaxmple` | 首次使用的配置模板 | 是 |
 | `startup.log` | 后台启动诊断 | 否 |
 | `node_modules/`、`dist/` | 依赖与构建产物，可重新生成 | 否 |
 
@@ -239,44 +282,36 @@ SQLite 持久化每个阶段和执行记录，启动时自动恢复：
 
 1. 停止服务，等待 CLI 子进程退出。
 2. 将**整个数据目录**复制到项目以外的备份位置，同时备份 `config.toml` 和 `prompts/`。不要只复制 SQLite 而漏掉原图。
-3. 在另一台 Mac 按“从零安装”准备环境、克隆仓库并使用自己的账号登录。
+3. 在另一台同系统电脑按“从零安装”准备环境、克隆仓库并使用自己的账号登录。
 4. 在目标服务停止时恢复整个数据目录和需要的提示词；调整配置中的代理、CLI 路径及数据路径，再启动。
+
+Windows 与 Mac 之间的数据路径可能不同，当前未验证跨系统的数据迁移；请保留原备份。
 
 放弃的生成结果会被清理，备份只包含备份时实际存在的文件。应用还会清理能明确归属本次执行的 Codex 生图缓存，不会清理其他 Codex 任务。
 
 ### 获取远端更新
 
-先停止并备份，再进入项目目录检查修改：
-
-```sh
-git status --short
-```
-
-如果自己改过 `config.toml` 或提示词，先临时保存这些修改（如果还改了其他代码，也要妥善保存后再更新）：
-
-```sh
-git stash push -m "local settings before update" -- config.toml prompts/images.md prompts/copy.md
-```
-
-拉取并按锁文件刷新依赖：
+日常更新只需**先停止工具**，在项目目录执行：
 
 ```sh
 git pull --ff-only
-npm ci
 ```
 
-**仅在前面确实创建了 stash 时**执行 `git stash pop` 恢复本地修改；如出现冲突，先用编辑器合并并保留自己的配置，再启动。不要用强制重置来覆盖自己的提示词。依赖安装需要网络，必要时先设置“从零安装”中的终端代理变量。
+然后双击对应系统的启动脚本。启动器会检测依赖文件变化、自动安装依赖并重新构建，不需要手工保存或恢复 `config.toml`。网络受限时先设置本文的终端代理再拉取，并保持配置中的代理可用。
 
-```sh
-npm run launch
-```
+`prompts/` 仍由 Git 管理。若自己修改过提示词或代码，拉取可能需要先提交或临时保存这些修改，再处理合并冲突；忽略配置文件不能消除其他文件的冲突。可用 `git status --short` 检查。
 
-启动器会重新构建界面。已有依赖目录时不会自动执行 `npm ci`，因此更新后不要省略上面的依赖刷新步骤。
+**旧版首次升级到“本地配置”版本：** 旧版曾将 `config.toml` 纳入 Git，拉取这次删除跟踪的更新时，Git 可能删除原配置，或因个人修改而拒绝更新。请在拉取前停止工具，把 `config.toml` 复制到仓库外；如配置有未提交修改，确认备份后运行 `git restore -- config.toml`，再 `git pull --ff-only`。最后把备份放回项目根目录，后续就无需再做这一步。
+
+更新前仍建议按上一节备份整个数据目录。不要用强制重置覆盖自己的提示词，也不要使用会清除忽略文件的 `git clean -fdx`，它会删除本地配置及素材。
 
 ## 常见问题
 
 | 现象 | 处理方法 |
 | --- | --- |
+| 缺少 `config.toml` | 按上文复制 `config.toml.eaxmple` 并填写自己的代理；旧版升级用户恢复升级前备份，不要直接覆盖已有配置 |
+| Windows 下 `npm.ps1` / `codex.ps1` 被阻止 | 在 PowerShell 使用 `npm.cmd` / `codex.cmd`；快捷 `.bat` 及后台会直接调用 npm 包的 JS 入口，无需放宽执行策略 |
+| Windows 找不到 `curl` / PowerShell / `taskkill` | 使用 Windows 10/11 自带工具，检查系统 PATH；项目原生 Windows 入口不能混用仅装在 WSL 内的 Node/Codex |
 | 找不到 `node` / Node 版本过低 | 安装 Node.js 24 或更新版本；新开终端检查 `node --version`。本项目使用 Node 内置 SQLite，旧版本不能运行 |
 | 终端能运行，双击却找不到 Node 或 Codex | `nvm` / `fnm` 等管理器的路径可能只在交互终端加载。先在能正常运行 Node 的终端用 `npm run launch`；Codex 可通过 `codex_bin` 配置绝对路径 |
 | `.command` 无执行权限或被当作文本打开 | 在项目终端执行 `chmod +x 启动素材工作台.command 停止素材工作台.command`，或直接运行 `bash ./启动素材工作台.command` |
@@ -297,6 +332,7 @@ npm run launch
 ## 开发与验证
 
 ```sh
+# 首次开发前，先按所在系统复制配置模板并填写 config.toml
 npm ci
 npm run build
 npm test

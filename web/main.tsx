@@ -691,7 +691,7 @@ function App() {
                           `/api/materials/${current.id}/open-images`,
                           {},
                         );
-                        setNotice("已在 Finder 中打开图片文件夹");
+                        setNotice("已请求打开本地图片文件夹");
                       })
                     }
                   />
@@ -1025,8 +1025,8 @@ function Detail({
                   className="icon-button"
                   disabled={busy}
                   onClick={openImages}
-                  title="在 Finder 中打开图片文件夹"
-                  aria-label="在 Finder 中打开图片文件夹"
+                  title="打开本地图片文件夹"
+                  aria-label="打开本地图片文件夹"
                 >
                   <FolderOpen size={18} />
                 </button>

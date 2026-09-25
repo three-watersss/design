@@ -51,9 +51,21 @@ server.on("error", (e) => {
   console.error("启动失败：", e.message);
   void shutdown();
 });
+// Windows SIGTERM cannot run Node cleanup handlers; the local stop script
+// requests shutdown using this instance's nonce instead of terminating Node.
+const stopWatch = setInterval(() => {
+  try {
+    const request = JSON.parse(
+      fs.readFileSync(path.join(lock, "stop.json"), "utf8"),
+    );
+    if (request.pid === process.pid && request.nonce === nonce) void shutdown();
+  } catch {}
+}, 500);
+stopWatch.unref();
 async function shutdown() {
   if (ending) return;
   ending = true;
+  clearInterval(stopWatch);
   await service.shutdown();
   server.closeAllConnections();
   server.close();

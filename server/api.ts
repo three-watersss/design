@@ -3,20 +3,15 @@ import multer from "multer";
 import archiver from "archiver";
 import fs from "node:fs";
 import path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { openDesktop } from "../scripts/platform.ts";
 import { Service, Conflict } from "./service.ts";
 import { attemptDir } from "./runner.ts";
 import { previewImport, commitImport } from "./importer.ts";
 async function openImageFolder(directory: string) {
-  if (process.platform !== "darwin")
-    throw Error("当前版本仅支持在 Mac 上打开图片文件夹");
   try {
-    await promisify(execFile)("/usr/bin/open", ["-a", "Finder", directory], {
-      timeout: 10000,
-    });
+    await openDesktop(directory, true);
   } catch {
-    throw Error("无法打开 Finder，请检查本地图片目录权限后重试");
+    throw Error("无法打开本地文件夹，请检查系统文件管理器及目录权限后重试");
   }
 }
 export function createApp(service: Service, openFolder = openImageFolder) {

@@ -1,7 +1,8 @@
 // Supervisor owns the CLI process group, including after the UI/server exits.
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
+import { nodeCommand } from "./platform.ts";
 const dir = process.argv[2];
 const job = JSON.parse(fs.readFileSync(path.join(dir, "request.json"), "utf8"));
 const atomic = (name, value) => {
@@ -19,6 +20,16 @@ let child,
 function stop() {
   if (ending) return;
   ending = true;
+  if (process.platform === "win32") {
+    try {
+      execFileSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
+        windowsHide: true,
+        stdio: "ignore",
+        timeout: 10000,
+      });
+    } catch {}
+    return;
+  }
   try {
     process.kill(-child.pid, "SIGTERM");
   } catch {}
@@ -45,10 +56,12 @@ process.stdout.on("error", () => {});
 process.stderr.on("error", () => {});
 let diagnostic = "";
 try {
-  child = spawn(job.bin, job.args, {
+  const command = nodeCommand(job.bin, job.args);
+  child = spawn(command.bin, command.args, {
     cwd: dir,
     env,
-    detached: true,
+    detached: process.platform !== "win32",
+    windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
   child.stdout.on("data", (b) => {
@@ -74,6 +87,11 @@ try {
       process.kill(job.parent, 0);
       const owner = JSON.parse(fs.readFileSync(job.ownerFile, "utf8"));
       if (owner.nonce !== job.nonce) stop();
+      const stopFile = path.join(dir, "stop.json");
+      if (fs.existsSync(stopFile)) {
+        const request = JSON.parse(fs.readFileSync(stopFile, "utf8"));
+        if (request.pid === process.pid && request.nonce === job.nonce) stop();
+      }
     } catch {
       stop();
     }

@@ -8,3 +8,6 @@ validation/
 .env*
 
 .launch-lock/
+
+# Personal runtime settings; copy config.toml.eaxmple on first setup.
+/config.toml

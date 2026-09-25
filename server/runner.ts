@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import type { Config } from "./config.ts";
 import type { Task, Attempt } from "./store.ts";
+import { nodeCommand, processCommand } from "../scripts/platform.ts";
 const exec = promisify(execFile);
 export type ErrorKind =
   | "rate"
@@ -152,8 +153,10 @@ export async function validateResult(
 export async function preflight(c: Config) {
   const checks: { name: string; ok: boolean; message: string }[] = [];
   try {
-    const { stdout, stderr } = await exec(c.codex, ["login", "status"], {
+    const command = nodeCommand(c.codex, ["login", "status"]);
+    const { stdout, stderr } = await exec(command.bin, command.args, {
       timeout: 15000,
+      windowsHide: true,
     });
     const s = stdout + stderr;
     checks.push({
@@ -183,10 +186,10 @@ export async function preflight(c: Config) {
         "--noproxy",
         "",
         "-o",
-        "/dev/null",
+        os.devNull,
         "https://chatgpt.com/",
       ],
-      { timeout: 15000 },
+      { timeout: 15000, windowsHide: true },
     );
     checks.push({ name: "网络代理", ok: true, message: new URL(c.proxy).host });
   } catch {
@@ -315,7 +318,11 @@ export function createRunner(c: Config): Runner {
       const worker = spawn(
         process.execPath,
         [path.join(c.root, "scripts", "cli-worker.mjs"), dir],
-        { stdio: ["ignore", "pipe", "ignore"], detached: true },
+        {
+          stdio: ["ignore", "pipe", "ignore"],
+          detached: true,
+          windowsHide: true,
+        },
       );
       context.onEvent({ pid: worker.pid });
       let buffer = "",
@@ -383,21 +390,23 @@ export async function stopWorker(c: Config, a: Attempt) {
   } catch {}
   if (!pid) return;
   const active = () => {
-    try {
-      const command = execFileSync(
-        "ps",
-        ["-p", String(pid), "-o", "command="],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-      );
-      return command.includes("cli-worker.mjs") && command.includes(dir);
-    } catch {
-      return false;
-    }
+    const command = processCommand(pid!).replaceAll("\\", "/");
+    return (
+      command.includes("cli-worker.mjs") &&
+      command.includes(dir.replaceAll("\\", "/"))
+    );
   };
   if (!active()) return;
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch {}
+  if (process.platform === "win32") {
+    const worker = JSON.parse(
+      fs.readFileSync(path.join(dir, "worker.json"), "utf8"),
+    );
+    atomicJSON(path.join(dir, "stop.json"), { pid, nonce: worker.nonce });
+  } else {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {}
+  }
   for (let n = 0; n < 100 && active(); n++)
     await new Promise((r) => setTimeout(r, 100));
   if (active()) throw Error("上次生成进程尚未退出，暂不恢复，请稍后重启");
