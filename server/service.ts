@@ -39,8 +39,17 @@ export class Service extends EventEmitter {
   }
   view(t: Task) {
     const { retry_prompt, ...safe } = t;
+    const reviewAttempt =
+      t.state === "review_images"
+        ? t.image_attempt
+        : t.state === "review_copy"
+          ? t.copy_attempt
+          : null;
     return {
       ...safe,
+      review_finished_at: reviewAttempt
+        ? (this.store.attempt(reviewAttempt)?.finished_at ?? null)
+        : null,
       images: this.store.assets(t.id).map((a) => ({
         id: a.id,
         url: `/api/assets/${a.id}`,

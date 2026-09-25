@@ -53,6 +53,7 @@ type Task = {
   progress: string;
   warning: string | null;
   created_at: number;
+  review_finished_at: number | null;
   published_at: number | null;
   next_at: number;
 };
@@ -546,7 +547,17 @@ function App() {
                       </div>
                       <h3>{t.topic}</h3>
                       <div className="task-bottom">
-                        <span>{time(t.created_at)}</span>
+                        <span
+                          title={
+                            t.review_finished_at != null
+                              ? "本次生成完成时间"
+                              : "选题创建时间"
+                          }
+                        >
+                          {t.review_finished_at != null
+                            ? `生成于 ${time(t.review_finished_at)}`
+                            : time(t.created_at)}
+                        </span>
                         <ArrowUpRight size={15} />
                       </div>
                       {t.state.startsWith("running") && (
