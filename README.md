@@ -78,7 +78,7 @@ Set-Location design
 
 仓库为 public，使用上述 HTTPS 地址克隆或 `git pull` **不需要 GitHub Key / Token**。推送修改仍需要写入权限及认证。若已有副本使用 SSH 地址，可执行 `git remote set-url origin https://github.com/three-watersss/design.git` 改为 HTTPS。
 
-后面的项目命令均在这个 `design` 目录中执行。仓库包含提示词 Markdown 文件，无需另找原始 DOCX 模板；新克隆的仓库不包含作者的素材、数据库或登录凭据。
+后面的项目命令均在这个 `design` 目录中执行。仓库包含提示词 Markdown 模板，无需另找原始 DOCX 模板；新克隆的仓库不包含作者的素材、数据库或登录凭据。
 
 ### 3. 安装 Codex CLI，并用自己的 ChatGPT 账号登录
 
@@ -149,7 +149,27 @@ Windows 的绝对路径建议使用正斜杠，例如 `codex_bin = "C:/Users/你
 
 保留 TOML 格式和引号。首次启动会自动创建 `data` 目录，无需手工创建数据库。
 
-### 5. 启动工作台
+### 5. 从模板创建本地提示词
+
+仓库只保存 [图片提示词模板](prompts/images.example.md) 和 [文案提示词模板](prompts/copy.example.md)。首次使用时复制为程序实际读取的文件：
+
+macOS：
+
+```sh
+cp prompts/images.example.md prompts/images.md
+cp prompts/copy.example.md prompts/copy.md
+```
+
+Windows PowerShell：
+
+```powershell
+Copy-Item prompts/images.example.md prompts/images.md
+Copy-Item prompts/copy.example.md prompts/copy.md
+```
+
+也可以在文件管理器中复制模板并去掉文件名中的 `.example`。**已有实际提示词时不要覆盖。** 后续只编辑 `prompts/images.md`、`prompts/copy.md`；这两份文件已被 Git 忽略，不影响拉取更新。修改模板文件不会改变程序使用的提示词，程序也不会在更新时自动覆盖实际提示词。
+
+### 6. 启动工作台
 
 Mac 双击 **启动素材工作台.command**；Windows 双击 **启动素材工作台.bat**。也可以在项目终端执行：
 
@@ -238,8 +258,10 @@ npm run launch
 
 ### 提示词文件
 
-- [prompts/images.md](prompts/images.md)：图片提示词，保留原模板及重复段落，可自行编辑。
-- [prompts/copy.md](prompts/copy.md)：文案提示词，生成时同时附带实际图片。
+- `prompts/images.md`：本地实际图片提示词，可自行编辑；首次从 [images.example.md](prompts/images.example.md) 复制。
+- `prompts/copy.md`：本地实际文案提示词，生成时同时附带实际图片；首次从 [copy.example.md](prompts/copy.example.md) 复制。
+
+程序只读取以上两份实际文件，不直接读取模板，也不会自动用模板补齐或覆盖个人文件。仓库跟踪 `*.example.md` 模板，两份实际提示词不纳入 Git；若需要采用新版模板，请自行比较并修改实际文件。
 
 两份文件均须保留 `{{topic}}` 占位符，用来注入主题；可选 `{{account}}` 注入账号名。使用 UTF-8 纯文本保存，不要把 DOCX 文件直接改名为 Markdown。程序只替换上述占位符，其余文字（包括自己写入的“（可变参数）”“（可替换参数）”）都会原样发送，不会自动删除。
 
@@ -270,7 +292,8 @@ SQLite 持久化每个阶段和执行记录，启动时自动恢复：
 | --- | --- | --- |
 | `data/materials.sqlite` | 任务、阶段、文案关联及发布状态 | 否 |
 | `data/attempts/` | 当前图片、文案结果及执行所需文件 | 否 |
-| `prompts/` | 可编辑提示词 | 是 |
+| `prompts/images.md`、`prompts/copy.md` | 本地实际提示词，可自行编辑 | 否 |
+| `prompts/*.example.md` | 首次使用的提示词模板 | 是 |
 | `config.toml` | 本机运行配置 | 否，个人配置不随拉取更新改变 |
 | `config.toml.eaxmple` | 首次使用的配置模板 | 是 |
 | `startup.log` | 后台启动诊断 | 否 |
@@ -297,13 +320,15 @@ Windows 与 Mac 之间的数据路径可能不同，当前未验证跨系统的�
 git pull --ff-only
 ```
 
-然后双击对应系统的启动脚本。启动器会检测依赖文件变化、自动安装依赖并重新构建，不需要手工保存或恢复 `config.toml`。网络受限时先设置本文的终端代理再拉取，并保持配置中的代理可用。
+然后双击对应系统的启动脚本。启动器会检测依赖文件变化、自动安装依赖并重新构建，不需要手工保存或恢复 `config.toml`、`prompts/images.md`、`prompts/copy.md`。网络受限时先设置本文的终端代理再拉取，并保持配置中的代理可用。
 
-`prompts/` 仍由 Git 管理。若自己修改过提示词或代码，拉取可能需要先提交或临时保存这些修改，再处理合并冲突；忽略配置文件不能消除其他文件的冲突。可用 `git status --short` 检查。
+个人配置和两份实际提示词都已忽略，日常修改它们不会影响拉取。若修改了仓库模板或代码，仍可能需要提交、临时保存或合并这些修改；可用 `git status --short` 检查。
 
 **旧版首次升级到“本地配置”版本：** 旧版曾将 `config.toml` 纳入 Git，拉取这次删除跟踪的更新时，Git 可能删除原配置，或因个人修改而拒绝更新。请在拉取前停止工具，把 `config.toml` 复制到仓库外；如配置有未提交修改，确认备份后运行 `git restore -- config.toml`，再 `git pull --ff-only`。最后把备份放回项目根目录，后续就无需再做这一步。
 
-更新前仍建议按上一节备份整个数据目录。不要用强制重置覆盖自己的提示词，也不要使用会清除忽略文件的 `git clean -fdx`，它会删除本地配置及素材。
+**旧版首次升级到“本地提示词”版本：** 先停止工具，将 `prompts/images.md`、`prompts/copy.md` 复制到仓库外备份。旧版仍跟踪它们，Git 拉取本次更新可能删除原文件，或因个人修改而拒绝更新。确认备份后，如有未提交修改，执行 `git restore -- prompts/images.md prompts/copy.md`，再 `git pull --ff-only`，最后把两份备份恢复到原路径。此操作仅需一次；不要用模板覆盖自己的旧提示词。若同时跨越本地配置的版本，也按上一段保留配置。
+
+更新前仍建议按上一节备份整个数据目录。不要用强制重置覆盖自己的提示词，也不要使用会清除忽略文件的 `git clean -fdx`，它会删除本地配置、实际提示词及素材。
 
 ## 常见问题
 
@@ -320,7 +345,7 @@ git pull --ff-only
 | 模型不存在 / 生图工具不可用 | 检查当前账号、CLI 版本和模型权限。登录检查通过不等于具备工具权限。记录任务错误，确认 Codex 会话能实际生图；本项目不会自动切换 API 计费或用脚本画图替代 |
 | 代理检查失败 | 核对 `config.toml` 中的协议与 HTTP / 混合端口，确认能访问 ChatGPT。代理响应不等于模型可用，仍需单选题验证 |
 | 页面打不开 / 提示端口被占用 | 查看项目根目录 `startup.log`；若由本工具占用，重复启动应打开现有实例；若是其他软件占用，先停止本工具，再更改端口并启动 |
-| 提示词检查失败 | 确认两个 Markdown 文件存在、内容非空并都包含字面量 `{{topic}}` |
+| 提示词检查失败 | 首次使用先将 `prompts/images.example.md`、`prompts/copy.example.md` 复制为 `images.md`、`copy.md`；已有用户恢复自己的备份。实际文件须可读且包含字面量 `{{topic}}` |
 | 导入提示缺列或无数据 | 检查第一张工作表第一行的表头和数据；不要将标题、说明或空行放在表头之前 |
 | 任务停在待审核 | 这是正常状态，需要人工通过才能进入下一阶段；不占并发名额 |
 | 任务长时间无结果 / 出错 | 查看详情中的阶段和错误原因；检查账号额度、代理和 CLI 工具能力。限流时减少并发；超时和无效输出不会当作成功 |
@@ -332,7 +357,7 @@ git pull --ff-only
 ## 开发与验证
 
 ```sh
-# 首次开发前，先按所在系统复制配置模板并填写 config.toml
+# 首次开发前，先按所在系统复制配置和两份提示词模板，再填写本地配置
 npm ci
 npm run build
 npm test

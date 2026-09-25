@@ -214,7 +214,7 @@ export async function preflight(c: Config) {
       checks.push({
         name: label,
         ok: false,
-        message: "文件缺失或缺少 {{topic}} 占位符",
+        message: `请确认 prompts/${stage}.md 存在且包含 {{topic}}；首次使用请从 prompts/${stage}.example.md 复制`,
       });
     }
   }

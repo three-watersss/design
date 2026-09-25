@@ -62,10 +62,12 @@ export function readPrompt(
   account: string,
   topic: string,
 ) {
-  const template = fs.readFileSync(
-    path.join(c.root, "prompts", stage + ".md"),
-    "utf8",
-  );
+  const file = path.join(c.root, "prompts", stage + ".md");
+  if (!fs.existsSync(file))
+    throw Error(
+      `缺少 prompts/${stage}.md，请先复制 prompts/${stage}.example.md 为实际提示词文件`,
+    );
+  const template = fs.readFileSync(file, "utf8");
   if (!template.includes("{{topic}}"))
     throw Error("提示词缺少 {{topic}} 占位符");
   return template

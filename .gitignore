@@ -11,3 +11,7 @@ validation/
 
 # Personal runtime settings; copy config.toml.eaxmple on first setup.
 /config.toml
+
+# Personal prompts; copy prompts/*.example.md on first setup.
+/prompts/images.md
+/prompts/copy.md
