@@ -53,6 +53,7 @@ type Task = {
   progress: string;
   warning: string | null;
   created_at: number;
+  queued_at: number;
   review_finished_at: number | null;
   published_at: number | null;
   next_at: number;
@@ -551,12 +552,16 @@ function App() {
                           title={
                             t.review_finished_at != null
                               ? "本次生成完成时间"
-                              : "选题创建时间"
+                              : t.state.startsWith("running")
+                                ? "本轮提交生成时间"
+                                : "选题创建时间"
                           }
                         >
                           {t.review_finished_at != null
                             ? `生成于 ${time(t.review_finished_at)}`
-                            : time(t.created_at)}
+                            : t.state.startsWith("running")
+                              ? `提交于 ${time(t.queued_at)}`
+                              : time(t.created_at)}
                         </span>
                         <ArrowUpRight size={15} />
                       </div>
