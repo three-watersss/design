@@ -1,0 +1,15 @@
+# 修改后重启工具生效；提示词文件每次新生成自动读取。
+[server]
+port = 4317
+data_dir = "./data"
+
+[generation]
+model = "gpt-5.6-sol"
+reasoning_effort = "high"
+# 图片张数由 prompts/images.md 决定，程序不限定固定张数。
+max_concurrency = 3
+timeout_minutes = 30
+codex_bin = "codex"
+
+[network]
+proxy = "http://127.0.0.1:7897"
