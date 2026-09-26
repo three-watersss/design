@@ -1573,3 +1573,10 @@ td:last-child {
   background: #bf3946;
   color: white;
 }
+
+.material-published-date {
+  padding: 0 17px 17px;
+  color: #697386;
+  font-size: 12px;
+  line-height: 1.6;
+}

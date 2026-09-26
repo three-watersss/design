@@ -625,6 +625,27 @@ function App() {
                         </div>
                       </div>
                     </button>
+                    {t.state === "published" && (
+                      <div className="material-published-date">
+                        {t.published_at != null ? (
+                          <time
+                            dateTime={new Date(t.published_at).toISOString()}
+                          >
+                            发布于{" "}
+                            {new Date(t.published_at).toLocaleDateString(
+                              "zh-CN",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              },
+                            )}
+                          </time>
+                        ) : (
+                          "发布时间未记录"
+                        )}
+                      </div>
+                    )}
                     {filter === "ready" && t.state === "ready" && (
                       <div className="material-actions">
                         <button
