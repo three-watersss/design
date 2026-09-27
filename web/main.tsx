@@ -709,7 +709,7 @@ function App() {
                           <h3>{t.topic}</h3>
                           <div>
                             {candidate === t.id
-                              ? "已选中 · 下方查看发布内容"
+                              ? "已选中 · 查看发布预览"
                               : "选择这组素材"}
                             <ArrowUpRight size={16} />
                           </div>
@@ -745,74 +745,6 @@ function App() {
                   )}
                 </div>
               )}
-              <div className="publish-panel">
-                {current && current.state === "ready" ? (
-                  <>
-                    <div className="publish-heading">
-                      <div>
-                        <span className="eyebrow">SELECTED MATERIAL</span>
-                        <h2>{current.topic}</h2>
-                        <span className="muted">
-                          {current.account} · 未发布
-                        </span>
-                      </div>
-                      <div className="button-row">
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() => setCandidate(null)}
-                        >
-                          <X size={15} />
-                          取消选择
-                        </button>
-                        <button
-                          className="primary"
-                          disabled={busy}
-                          onClick={() =>
-                            action(async () => {
-                              await api(`/api/tasks/${current.id}/publish`, {
-                                version: current.version,
-                              });
-                              setCandidate(null);
-                              setNotice("已标记为发布");
-                            })
-                          }
-                        >
-                          <Check size={16} />
-                          发布 · 标记已发布
-                        </button>
-                      </div>
-                    </div>
-                    <Detail
-                      task={current}
-                      busy={busy}
-                      action={taskAction}
-                      onImage={(images, index) =>
-                        setLightbox({ images, index })
-                      }
-                      copy={copyText}
-                      hideHeader
-                      openImages={() =>
-                        action(async () => {
-                          await api(
-                            `/api/materials/${current.id}/open-images`,
-                            {},
-                          );
-                          setNotice("已请求打开本地图片文件夹");
-                        })
-                      }
-                    />
-                  </>
-                ) : publishTasks.length ? (
-                  <div className="empty">
-                    <Send size={35} />
-                    <h2>选择一组素材，查看图片和文案</h2>
-                    <p>
-                      点击上方卡片，可复制文案、下载图片或打开本地图片文件夹。
-                    </p>
-                  </div>
-                ) : null}
-              </div>
             </>
           )}
           <footer>
@@ -942,6 +874,51 @@ function App() {
               <RefreshCw size={15} />
               重新检查
             </button>
+          </div>
+        </div>
+      )}
+      {page === "publish" && current?.state === "ready" && (
+        <div className="modal-backdrop" onClick={() => setCandidate(null)}>
+          <div
+            className="modal wide"
+            role="dialog"
+            aria-modal="true"
+            aria-label="发布预览"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHead title="发布预览" close={() => setCandidate(null)} />
+            <div className="publish-modal-actions">
+              <span className="muted">请自行完成发布后，再标记为已发布。</span>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() =>
+                  action(async () => {
+                    await api(`/api/tasks/${current.id}/publish`, {
+                      version: current.version,
+                    });
+                    setCandidate(null);
+                    setNotice("已标记为发布");
+                  })
+                }
+              >
+                <Check size={16} />
+                发布 · 标记已发布
+              </button>
+            </div>
+            <Detail
+              task={current}
+              busy={busy}
+              action={taskAction}
+              onImage={(images, index) => setLightbox({ images, index })}
+              copy={copyText}
+              openImages={() =>
+                action(async () => {
+                  await api(`/api/materials/${current.id}/open-images`, {});
+                  setNotice("已请求打开本地图片文件夹");
+                })
+              }
+            />
           </div>
         </div>
       )}

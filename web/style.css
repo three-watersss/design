@@ -1588,3 +1588,12 @@ td:last-child {
   border-color: var(--primary, #8060c7);
   box-shadow: 0 0 0 2px #8060c733;
 }
+
+.publish-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 28px 0;
+}
