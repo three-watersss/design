@@ -145,9 +145,7 @@ function App() {
       images: ImageAsset[];
       index: number;
     } | null>(null);
-  const [candidate, setCandidate] = useState<string | null>(null),
-    [excluded, setExcluded] = useState<string[]>([]),
-    [picked, setPicked] = useState(false);
+  const [candidate, setCandidate] = useState<string | null>(null);
   const load = async () => {
     try {
       setData(await api("/api/state"));
@@ -194,6 +192,7 @@ function App() {
     setFilter("all");
     setQuery("");
     setSelected(null);
+    setCandidate(null);
   };
   const taskAction = (t: Task, kind: string) =>
     action(() => api(`/api/tasks/${t.id}/${kind}`, { version: t.version }));
@@ -206,18 +205,6 @@ function App() {
     } catch {
       setError("复制失败，请选中文案手动复制");
     }
-  };
-  const pick = async (reset = false) => {
-    const omit = reset ? [] : excluded;
-    await action(async () => {
-      const result = await api("/api/publish/pick", {
-        account,
-        excluded: omit,
-      });
-      setCandidate(result.task?.id ?? null);
-      setPicked(true);
-      setExcluded(result.task ? [...omit, result.task.id] : omit);
-    });
   };
   if (!data)
     return (
@@ -233,7 +220,9 @@ function App() {
   const matches = (t: Task) =>
     (!account || account === t.account) &&
     (!query ||
-      `${t.account} ${t.topic}`.toLowerCase().includes(query.toLowerCase()));
+      `${t.account} ${t.topic}`
+        .toLowerCase()
+        .includes(query.trim().toLowerCase()));
   const tasks = data.tasks
     .filter(
       (t) =>
@@ -251,6 +240,9 @@ function App() {
         (filter === "error" && ["failed", "blocked"].includes(t.state)) ||
         filter === t.state,
     );
+  const publishTasks = data.tasks.filter(
+    (t) => t.state === "ready" && matches(t),
+  );
   const current = data.tasks.find(
     (t) => t.id === (page === "publish" ? candidate : selected),
   );
@@ -433,6 +425,13 @@ function App() {
               detail="已准备好，随时出发"
               color="green"
             />
+            <Stat
+              icon={<Send size={19} />}
+              title="已发布"
+              value={data.counts.published}
+              detail="已记录发布的完整素材"
+              color="blue"
+            />
           </div>
           <div className="toolbar">
             <div className="section-title">
@@ -442,7 +441,7 @@ function App() {
                   ? "我的素材"
                   : "发布候选"}
               <span>
-                {page === "publish" ? data.counts.ready : tasks.length}
+                {page === "publish" ? publishTasks.length : tasks.length}
               </span>
             </div>
             <div className="tools">
@@ -452,8 +451,6 @@ function App() {
                 onChange={(e) => {
                   setAccount(e.target.value);
                   setCandidate(null);
-                  setExcluded([]);
-                  setPicked(false);
                 }}
               >
                 <option value="">全部账号</option>
@@ -461,16 +458,21 @@ function App() {
                   <option key={a}>{a}</option>
                 ))}
               </select>
-              {page !== "publish" && (
-                <div className="search">
-                  <Search size={15} />
-                  <input
-                    placeholder="搜索账号或主题"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </div>
-              )}
+              <div className="search">
+                <Search size={15} />
+                <input
+                  placeholder={
+                    page === "publish"
+                      ? "搜索主题关键词，如中秋、秋季"
+                      : "搜索账号或主题"
+                  }
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setCandidate(null);
+                  }}
+                />
+              </div>
               {page === "work" && (
                 <button
                   className="secondary"
@@ -676,91 +678,142 @@ function App() {
               </div>
             ))}
           {page === "publish" && (
-            <div className="publish-panel">
-              {current && current.state === "ready" ? (
-                <>
-                  <div className="publish-heading">
-                    <div>
-                      <span className="eyebrow">PICKED FOR YOU</span>
-                      <h2>{current.topic}</h2>
-                      <span className="muted">
-                        {current.account} · 未发布 · 本轮第 {excluded.length} 组
-                      </span>
-                    </div>
-                    <div className="button-row">
+            <>
+              <p className="muted">
+                展示全部符合条件的待发布素材，请手动选择。发布按钮仅记录状态，请自行在小红书完成发布。
+              </p>
+              {publishTasks.length ? (
+                <div className="library-grid publish-candidates">
+                  {publishTasks.map((t) => (
+                    <article
+                      className={
+                        "material-card" + (candidate === t.id ? " chosen" : "")
+                      }
+                      key={t.id}
+                    >
                       <button
-                        className="secondary"
-                        disabled={busy}
-                        onClick={() => pick()}
+                        className="material-open"
+                        aria-pressed={candidate === t.id}
+                        onClick={() => setCandidate(t.id)}
                       >
-                        <RefreshCw size={15} />
-                        换一组
+                        <div className="material-cover">
+                          {t.images[0] && (
+                            <img src={t.images[0].url} alt={t.topic} />
+                          )}
+                          <Badge state={t.state} />
+                        </div>
+                        <div className="material-info">
+                          <span>
+                            {t.account} · {t.images.length} 张图片
+                          </span>
+                          <h3>{t.topic}</h3>
+                          <div>
+                            {candidate === t.id
+                              ? "已选中 · 下方查看发布内容"
+                              : "选择这组素材"}
+                            <ArrowUpRight size={16} />
+                          </div>
+                        </div>
                       </button>
-                      <button
-                        className="primary"
-                        disabled={busy}
-                        onClick={() =>
-                          action(async () => {
-                            await api(`/api/tasks/${current.id}/publish`, {
-                              version: current.version,
-                            });
-                            setCandidate(null);
-                            setNotice("已标记为发布");
-                            setPicked(false);
-                          })
-                        }
-                      >
-                        <Check size={16} />
-                        发布 · 标记已发布
-                      </button>
-                    </div>
-                  </div>
-                  <Detail
-                    task={current}
-                    busy={busy}
-                    action={taskAction}
-                    onImage={(images, index) => setLightbox({ images, index })}
-                    copy={copyText}
-                    hideHeader
-                    openImages={() =>
-                      action(async () => {
-                        await api(
-                          `/api/materials/${current.id}/open-images`,
-                          {},
-                        );
-                        setNotice("已请求打开本地图片文件夹");
-                      })
-                    }
-                  />
-                </>
+                    </article>
+                  ))}
+                </div>
               ) : (
                 <div className="empty">
-                  <div className="empty-art">
-                    <Send size={35} />
-                    <Sparkles size={19} />
-                  </div>
+                  <FolderOpen size={34} />
                   <h2>
-                    {picked ? "本轮已经看完了" : "下一篇笔记，从这里开始"}
+                    {account || query
+                      ? "没有匹配的待发布素材"
+                      : "暂无待发布素材"}
                   </h2>
                   <p>
-                    {picked
-                      ? "没有更多符合条件的未发布素材。可以重新开始挑选，或切换账号。"
-                      : "为你挑选一组完整素材，图片、文案都已准备好。"}
+                    {account || query
+                      ? "试试其他主题关键词，或清除筛选条件。"
+                      : "图片和文案审核通过后，会自动出现在这里。"}
                   </p>
-                  <button
-                    className="primary"
-                    disabled={busy || data.counts.ready === 0}
-                    onClick={() => pick(true)}
-                  >
-                    <Sparkles size={16} />
-                    {picked ? "重新开始挑选" : "挑选一组素材"}
-                  </button>
-                  <small>
-                    发布按钮只记录发布状态，请自行在小红书完成发布。
-                  </small>
+                  {(account || query) && (
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        setAccount("");
+                        setQuery("");
+                        setCandidate(null);
+                      }}
+                    >
+                      清除筛选
+                    </button>
+                  )}
                 </div>
               )}
-            </div>
+              <div className="publish-panel">
+                {current && current.state === "ready" ? (
+                  <>
+                    <div className="publish-heading">
+                      <div>
+                        <span className="eyebrow">SELECTED MATERIAL</span>
+                        <h2>{current.topic}</h2>
+                        <span className="muted">
+                          {current.account} · 未发布
+                        </span>
+                      </div>
+                      <div className="button-row">
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() => setCandidate(null)}
+                        >
+                          <X size={15} />
+                          取消选择
+                        </button>
+                        <button
+                          className="primary"
+                          disabled={busy}
+                          onClick={() =>
+                            action(async () => {
+                              await api(`/api/tasks/${current.id}/publish`, {
+                                version: current.version,
+                              });
+                              setCandidate(null);
+                              setNotice("已标记为发布");
+                            })
+                          }
+                        >
+                          <Check size={16} />
+                          发布 · 标记已发布
+                        </button>
+                      </div>
+                    </div>
+                    <Detail
+                      task={current}
+                      busy={busy}
+                      action={taskAction}
+                      onImage={(images, index) =>
+                        setLightbox({ images, index })
+                      }
+                      copy={copyText}
+                      hideHeader
+                      openImages={() =>
+                        action(async () => {
+                          await api(
+                            `/api/materials/${current.id}/open-images`,
+                            {},
+                          );
+                          setNotice("已请求打开本地图片文件夹");
+                        })
+                      }
+                    />
+                  </>
+                ) : publishTasks.length ? (
+                  <div className="empty">
+                    <Send size={35} />
+                    <h2>选择一组素材，查看图片和文案</h2>
+                    <p>
+                      点击上方卡片，可复制文案、下载图片或打开本地图片文件夹。
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </>
           )}
           <footer>
             每一次创作，都向前一步。<span>素材保存在这台电脑上</span>

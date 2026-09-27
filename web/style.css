@@ -332,7 +332,7 @@ h1 {
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 33px;
 }
@@ -1579,4 +1579,12 @@ td:last-child {
   color: #697386;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.publish-candidates {
+  margin: 18px 0 24px;
+}
+.material-card.chosen {
+  border-color: var(--primary, #8060c7);
+  box-shadow: 0 0 0 2px #8060c733;
 }
